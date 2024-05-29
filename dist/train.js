@@ -46,10 +46,11 @@ function loadImagesFromFolder(folderPath) {
 function preprocessImage(imagePath) {
     return __awaiter(this, void 0, void 0, function* () {
         const image = yield jimp.read(imagePath);
-        image.resize(224, 224);
-        const imageData = new Float32Array(224 * 224 * 3);
+        const targetSize = 5; // Reduzir a resolução para 64x64
+        image.resize(targetSize, targetSize);
+        const imageData = new Float32Array(targetSize * targetSize * 3);
         let index = 0;
-        image.scan(0, 0, 224, 224, function (x, y, idx) {
+        image.scan(0, 0, targetSize, targetSize, function (x, y, idx) {
             imageData[index++] = this.bitmap.data[idx] / 255;
             imageData[index++] = this.bitmap.data[idx + 1] / 255;
             imageData[index++] = this.bitmap.data[idx + 2] / 255;
@@ -83,8 +84,8 @@ function trainModel(folderPath, modelPath) {
         else {
             console.log('Nenhum modelo existente encontrado. Criando um novo modelo...');
         }
-        const batchSize = 10;
-        const iterations = 1000;
+        const batchSize = 5; // Reduzir tamanho do lote para evitar travamentos
+        const iterations = 100; // Reduzir número de iterações para evitar travamentos
         const numBatches = Math.ceil(trainingSet.length / batchSize);
         for (let i = 0; i < iterations; i++) {
             for (let j = 0; j < numBatches; j++) {
@@ -94,11 +95,16 @@ function trainModel(folderPath, modelPath) {
                 net.train(batch, {
                     iterations: 1,
                     log: true,
-                    logPeriod: 100,
+                    logPeriod: 10, // Reduzir logPeriod para ver logs com mais frequência
                 });
             }
         }
-        fs.writeFileSync(modelPath, JSON.stringify(net.toJSON()));
+        try {
+            fs.writeFileSync(modelPath, JSON.stringify(net.toJSON()));
+        }
+        catch (error) {
+            console.error('Erro ao salvar o modelo:', error);
+        }
         console.log(`Modelo treinado e salvo como ${modelPath}`);
     });
 }

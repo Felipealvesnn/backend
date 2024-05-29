@@ -6,7 +6,7 @@ import { trainModel } from './train';
 
 
 
-trainModel('./src/data', path.join('./src/model/datamodel.json'));
+trainModel('./src/data', './src/model/datamodel.json');
 
 
 import  Router  from './routers/index';
