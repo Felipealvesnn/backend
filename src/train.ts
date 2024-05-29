@@ -10,7 +10,7 @@ async function loadImagesFromFolder(folderPath: string): Promise<string[]> {
 
 async function preprocessImage(imagePath: string): Promise<Float32Array> {
   const image = await jimp.read(imagePath);
-  const targetSize = 64; // Reduzir a resolução para 64x64
+  const targetSize = 30; // Reduzir a resolução para 64x64
   image.resize(targetSize, targetSize);
 
   const imageData = new Float32Array(targetSize * targetSize * 3);
@@ -38,6 +38,7 @@ async function createTrainingSet(folderPath: string): Promise<{ input: Float32Ar
 
   return trainingSet;
 }
+
 
 async function trainModel(folderPath: string, modelPath: string) {
   const trainingSet = await createTrainingSet(folderPath);

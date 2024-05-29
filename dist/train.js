@@ -46,7 +46,7 @@ function loadImagesFromFolder(folderPath) {
 function preprocessImage(imagePath) {
     return __awaiter(this, void 0, void 0, function* () {
         const image = yield jimp.read(imagePath);
-        const targetSize = 5; // Reduzir a resolução para 64x64
+        const targetSize = 30; // Reduzir a resolução para 64x64
         image.resize(targetSize, targetSize);
         const imageData = new Float32Array(targetSize * targetSize * 3);
         let index = 0;
