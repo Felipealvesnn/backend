@@ -32,8 +32,14 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const tf = __importStar(require("@tensorflow/tfjs"));
+const tf = __importStar(require("@tensorflow/tfjs")); // Usar a versão Node.js do TensorFlow.js
+const fs = __importStar(require("fs"));
+const path = __importStar(require("path"));
 const canvas_1 = require("canvas");
+// Define o caminho absoluto para a pasta 'model' dentro de 'src'
+const modelDir = path.join(__dirname, 'model');
+const modelPath = path.join(modelDir, 'model.json');
+// Função para criar o modelo
 const createModel = () => {
     const model = tf.sequential();
     model.add(tf.layers.conv2d({
@@ -53,10 +59,12 @@ const createModel = () => {
     });
     return model;
 };
+// Função para carregar os dados de treinamento
 const loadTrainingData = () => __awaiter(void 0, void 0, void 0, function* () {
     const images = [];
     const labels = [];
-    const image = yield (0, canvas_1.loadImage)('path/to/your/image.png');
+    const imagePath = path.join(__dirname, 'data', 'lapis.png');
+    const image = yield (0, canvas_1.loadImage)(imagePath);
     const canvas = (0, canvas_1.createCanvas)(64, 64);
     const ctx = canvas.getContext('2d');
     ctx.drawImage(image, 0, 0, 64, 64);
@@ -67,20 +75,38 @@ const loadTrainingData = () => __awaiter(void 0, void 0, void 0, function* () {
     labels.push(1); // Exemplo de rótulo, ajuste conforme necessário
     return { images, labels };
 });
+// Função para treinar o modelo
 const trainModel = () => __awaiter(void 0, void 0, void 0, function* () {
-    const model = createModel();
-    const { images, labels } = yield loadTrainingData();
-    const xs = tf.stack(images);
-    const ys = tf.tensor1d(labels);
-    yield model.fit(xs, ys, {
-        epochs: 10,
-        batchSize: 32,
-        validationSplit: 0.2,
-        callbacks: tf.callbacks.earlyStopping({ monitor: 'val_loss' })
-    });
-    const savePath = 'file://./model';
-    yield model.save(savePath);
-    console.log(`Modelo salvo em: ${savePath}`);
+    // Verificar se a pasta 'model' existe, caso contrário, criar
+    if (!fs.existsSync(modelDir)) {
+        fs.mkdirSync(modelDir);
+    }
+    // Verificar se o modelo já existe
+    if (fs.existsSync(modelPath)) {
+        console.log('Modelo já existe. Carregando modelo existente.');
+        const model = yield tf.loadLayersModel(`file://${modelPath}`);
+        console.log('Modelo carregado.');
+        return model;
+    }
+    else {
+        console.log('Modelo não encontrado. Criando e treinando um novo modelo.');
+        const model = createModel();
+        yield model.save('downloads://my-model');
+        const { images, labels } = yield loadTrainingData();
+        const xs = tf.stack(images);
+        const ys = tf.tensor1d(labels);
+        yield model.fit(xs, ys, {
+            epochs: 10,
+            batchSize: 32,
+            validationSplit: 0.2,
+            callbacks: tf.callbacks.earlyStopping({ monitor: 'val_loss' })
+        });
+        // Salvar o modelo no sistema de arquivos usando tf.io.fileSystem
+        //tf.io.fileSystem(modelPath, model.toJSON());
+        yield model.save(`file://${modelDir}`);
+        console.log(`Modelo salvo em: ${modelPath}`);
+        return model;
+    }
 });
 exports.default = trainModel;
 //# sourceMappingURL=train.js.map
