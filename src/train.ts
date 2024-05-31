@@ -3,14 +3,16 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as jimp from 'jimp';
 
+// Carregar imagens da pasta especificada
 async function loadImagesFromFolder(folderPath: string): Promise<string[]> {
   const files = fs.readdirSync(folderPath);
   return files.filter(file => /\.(jpg|jpeg|png)$/i.test(file)).map(file => path.join(folderPath, file));
 }
 
+// Pré-processar uma imagem
 async function preprocessImage(imagePath: string): Promise<Float32Array> {
   const image = await jimp.read(imagePath);
-  const targetSize = 30; // Reduzir a resolução para 64x64
+  const targetSize = 30; // Reduzir a resolução para 30x30
   image.resize(targetSize, targetSize);
 
   const imageData = new Float32Array(targetSize * targetSize * 3);
@@ -24,6 +26,7 @@ async function preprocessImage(imagePath: string): Promise<Float32Array> {
   return imageData;
 }
 
+// Criar conjunto de treinamento
 async function createTrainingSet(folderPath: string, objectName: string): Promise<{ input: Float32Array; output: { [key: string]: number } }[]> {
   const imagePaths = await loadImagesFromFolder(folderPath);
   const trainingSet: { input: Float32Array; output: { [key: string]: number } }[] = [];
@@ -39,6 +42,7 @@ async function createTrainingSet(folderPath: string, objectName: string): Promis
   return trainingSet;
 }
 
+// Treinar modelo de rede neural
 async function trainModel(folderPath: string, objectName: string) {
   const modelPath = './src/model/datamodel.json';
   const trainingSet = await createTrainingSet(folderPath, objectName);
@@ -79,6 +83,7 @@ async function trainModel(folderPath: string, objectName: string) {
   console.log(`Modelo treinado e salvo como ${modelPath}`);
 }
 
+// Detectar objetos em novas imagens
 async function detectObject(imagePath: string) {
   const modelPath = './src/model/datamodel.json';
 
@@ -89,15 +94,39 @@ async function detectObject(imagePath: string) {
   } else {
     throw new Error('Modelo não encontrado. Treine o modelo antes de tentar detectar objetos.');
   }
+
   const imagePaths = await loadImagesFromFolder(imagePath);
 
   for (const imagePath of imagePaths) {
     const imageData = await preprocessImage(imagePath);
     const result = net.run(imageData);
     console.log('Resultados da inferência:', result);
-    
   }
+}
+
+export async function detectObjectFromframeVideo(imagePath: Float32Array) {
+
+  const net = new brain.NeuralNetwork();
+  // Supondo que o modelo já esteja treinado e salvo
+  const modelPath = './src/model/datamodel.json';
+
+  if (fs.existsSync(modelPath)) {
+    const modelJson = fs.readFileSync(modelPath, 'utf-8');
+    net.fromJSON(JSON.parse(modelJson));
+  } else {
+    throw new Error('Modelo não encontrado. Treine o modelo antes de tentar detectar objetos.');
+  }
+  const result = net.run(imagePath);
+  return result;
+
 
 }
 
+
+
 export { detectObject, trainModel };
+
+// Treinamento do modelo com quadros salvos
+// trainModel('./src/data/frames', 'objectName')
+//   .then(() => console.log('Treinamento concluído'))
+//   .catch(error => console.error('Erro no treinamento:', error));

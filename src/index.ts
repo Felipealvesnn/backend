@@ -4,14 +4,22 @@ import * as path from 'path';
 //import loadModelAndInfer from './infer';
 import * as brains from './train';
 
+var i = 0;
+
+  // while (i < 40) {
+  //   console.log('treinando');
+  //    brains.trainModel('./src/data/cenoura', 'cenoura');
+  //   console.log('treinado');
+  //   i++
+  //   //brains.detectObject('./src/data/cenoura');
+  // }
+
+//brains.trainModel('./src/data/cenoura','cenoura');
+//brains.detectObject('./src/data/cenoura');
 
 
-brains.trainModel('./src/data','lapis');
-brains.detectObject('./src/data');
 
-
-
-import  Router  from './routers/index';
+import Router from './routers/index';
 
 
 

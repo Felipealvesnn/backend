@@ -32,21 +32,23 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.trainModel = exports.detectObject = void 0;
+exports.trainModel = exports.detectObject = exports.detectObjectFromframeVideo = void 0;
 const brain = __importStar(require("brain.js"));
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const jimp = __importStar(require("jimp"));
+// Carregar imagens da pasta especificada
 function loadImagesFromFolder(folderPath) {
     return __awaiter(this, void 0, void 0, function* () {
         const files = fs.readdirSync(folderPath);
         return files.filter(file => /\.(jpg|jpeg|png)$/i.test(file)).map(file => path.join(folderPath, file));
     });
 }
+// Pré-processar uma imagem
 function preprocessImage(imagePath) {
     return __awaiter(this, void 0, void 0, function* () {
         const image = yield jimp.read(imagePath);
-        const targetSize = 30; // Reduzir a resolução para 64x64
+        const targetSize = 30; // Reduzir a resolução para 30x30
         image.resize(targetSize, targetSize);
         const imageData = new Float32Array(targetSize * targetSize * 3);
         let index = 0;
@@ -58,7 +60,8 @@ function preprocessImage(imagePath) {
         return imageData;
     });
 }
-function createTrainingSet(folderPath) {
+// Criar conjunto de treinamento
+function createTrainingSet(folderPath, objectName) {
     return __awaiter(this, void 0, void 0, function* () {
         const imagePaths = yield loadImagesFromFolder(folderPath);
         const trainingSet = [];
@@ -66,16 +69,17 @@ function createTrainingSet(folderPath) {
             const imageData = yield preprocessImage(imagePath);
             trainingSet.push({
                 input: imageData,
-                output: { Lapis: 1 },
+                output: { [objectName]: 1 },
             });
         }
         return trainingSet;
     });
 }
-function trainModel(folderPath) {
+// Treinar modelo de rede neural
+function trainModel(folderPath, objectName) {
     return __awaiter(this, void 0, void 0, function* () {
         const modelPath = './src/model/datamodel.json';
-        const trainingSet = yield createTrainingSet(folderPath);
+        const trainingSet = yield createTrainingSet(folderPath, objectName);
         let net = new brain.NeuralNetwork();
         if (fs.existsSync(modelPath)) {
             console.log('Modelo existente encontrado. Carregando...');
@@ -110,6 +114,7 @@ function trainModel(folderPath) {
     });
 }
 exports.trainModel = trainModel;
+// Detectar objetos em novas imagens
 function detectObject(imagePath) {
     return __awaiter(this, void 0, void 0, function* () {
         const modelPath = './src/model/datamodel.json';
@@ -127,11 +132,28 @@ function detectObject(imagePath) {
             const result = net.run(imageData);
             console.log('Resultados da inferência:', result);
         }
-        const imageData = yield preprocessImage(imagePath[0]);
-        const result = net.run(imageData);
-        console.log('Resultados da inferência:', result);
-        return result;
     });
 }
 exports.detectObject = detectObject;
+function detectObjectFromframeVideo(imagePath) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const net = new brain.NeuralNetwork();
+        // Supondo que o modelo já esteja treinado e salvo
+        const modelPath = './src/model/datamodel.json';
+        if (fs.existsSync(modelPath)) {
+            const modelJson = fs.readFileSync(modelPath, 'utf-8');
+            net.fromJSON(JSON.parse(modelJson));
+        }
+        else {
+            throw new Error('Modelo não encontrado. Treine o modelo antes de tentar detectar objetos.');
+        }
+        const result = net.run(imagePath);
+        return result;
+    });
+}
+exports.detectObjectFromframeVideo = detectObjectFromframeVideo;
+// Treinamento do modelo com quadros salvos
+// trainModel('./src/data/frames', 'objectName')
+//   .then(() => console.log('Treinamento concluído'))
+//   .catch(error => console.error('Erro no treinamento:', error));
 //# sourceMappingURL=train.js.map
