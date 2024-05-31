@@ -42,7 +42,7 @@ const createModel = (): tf.Sequential => {
 }
 
 // Função para treinar o modelo
-const trainModel = async (folderPath: string): Promise<void> => {
+export const trainModel = async (folderPath: string): Promise<void> => {
     const images = await loadImagesFromFolder(folderPath);
     const labels = images.map(() => 1); // Dummy labels: substitua por seus reais labels
 
@@ -59,12 +59,16 @@ const trainModel = async (folderPath: string): Promise<void> => {
 }
 
 // Função para inferência
-const predictImage = async (imagePath: string): Promise<Float32Array> => {
+ const predictImage = async (imagePath: string): Promise<Float32Array> => {
     const model = await tf.loadLayersModel('file://model-path/model.json');
-    const image = loadAndPreprocessImage(imagePath);
-    const prediction = model.predict(image) as tf.Tensor<tf.Rank>;
-    return prediction.dataSync();
+    const image = await loadAndPreprocessImage(imagePath); // Certifique-se de que esta função também é async
+    const prediction = model.predict(image) as tf.Tensor;
+
+    // Garantir que o tensor está em float32 antes de chamar dataSync
+    const predictionFloat32 = prediction.cast('float32');
+    return predictionFloat32.dataSync() as Float32Array;
 }
+
 
 // Usar as funções
 (async () => {
