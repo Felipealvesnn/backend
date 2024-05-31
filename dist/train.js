@@ -72,8 +72,9 @@ function createTrainingSet(folderPath) {
         return trainingSet;
     });
 }
-function trainModel(folderPath, modelPath) {
+function trainModel(folderPath) {
     return __awaiter(this, void 0, void 0, function* () {
+        const modelPath = './src/model/datamodel.json';
         const trainingSet = yield createTrainingSet(folderPath);
         let net = new brain.NeuralNetwork();
         if (fs.existsSync(modelPath)) {
@@ -109,8 +110,9 @@ function trainModel(folderPath, modelPath) {
     });
 }
 exports.trainModel = trainModel;
-function detectObject(imagePath, modelPath) {
+function detectObject(imagePath) {
     return __awaiter(this, void 0, void 0, function* () {
+        const modelPath = './src/model/datamodel.json';
         const net = new brain.NeuralNetwork();
         if (fs.existsSync(modelPath)) {
             const modelJson = fs.readFileSync(modelPath, 'utf-8');
@@ -119,7 +121,13 @@ function detectObject(imagePath, modelPath) {
         else {
             throw new Error('Modelo não encontrado. Treine o modelo antes de tentar detectar objetos.');
         }
-        const imageData = yield preprocessImage(imagePath);
+        const imagePaths = yield loadImagesFromFolder(imagePath);
+        for (const imagePath of imagePaths) {
+            const imageData = yield preprocessImage(imagePath);
+            const result = net.run(imageData);
+            console.log('Resultados da inferência:', result);
+        }
+        const imageData = yield preprocessImage(imagePath[0]);
         const result = net.run(imageData);
         console.log('Resultados da inferência:', result);
         return result;

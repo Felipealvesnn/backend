@@ -2,11 +2,13 @@ import express, { Request, Response } from 'express';
 import * as path from 'path';
 
 //import loadModelAndInfer from './infer';
-import { trainModel } from './train';
+import * as brains from './train';
 
 
 
-trainModel('./src/data', './src/model/datamodel.json');
+brains.trainModel('./src/data','lapis');
+brains.detectObject('./src/data');
+
 
 
 import  Router  from './routers/index';

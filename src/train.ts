@@ -24,24 +24,24 @@ async function preprocessImage(imagePath: string): Promise<Float32Array> {
   return imageData;
 }
 
-async function createTrainingSet(folderPath: string): Promise<{ input: Float32Array; output: { Lapis: number } }[]> {
+async function createTrainingSet(folderPath: string, objectName: string): Promise<{ input: Float32Array; output: { [key: string]: number } }[]> {
   const imagePaths = await loadImagesFromFolder(folderPath);
-  const trainingSet: { input: Float32Array; output: { Lapis: number } }[] = [];
+  const trainingSet: { input: Float32Array; output: { [key: string]: number } }[] = [];
 
   for (const imagePath of imagePaths) {
     const imageData = await preprocessImage(imagePath);
     trainingSet.push({
       input: imageData,
-      output: { Lapis: 1 },
+      output: { [objectName]: 1 },
     });
   }
 
   return trainingSet;
 }
 
-
-async function trainModel(folderPath: string, modelPath: string) {
-  const trainingSet = await createTrainingSet(folderPath);
+async function trainModel(folderPath: string, objectName: string) {
+  const modelPath = './src/model/datamodel.json';
+  const trainingSet = await createTrainingSet(folderPath, objectName);
 
   let net = new brain.NeuralNetwork();
 
@@ -79,7 +79,9 @@ async function trainModel(folderPath: string, modelPath: string) {
   console.log(`Modelo treinado e salvo como ${modelPath}`);
 }
 
-async function detectObject(imagePath: string, modelPath: string) {
+async function detectObject(imagePath: string) {
+  const modelPath = './src/model/datamodel.json';
+
   const net = new brain.NeuralNetwork();
   if (fs.existsSync(modelPath)) {
     const modelJson = fs.readFileSync(modelPath, 'utf-8');
@@ -87,12 +89,15 @@ async function detectObject(imagePath: string, modelPath: string) {
   } else {
     throw new Error('Modelo não encontrado. Treine o modelo antes de tentar detectar objetos.');
   }
+  const imagePaths = await loadImagesFromFolder(imagePath);
 
-  const imageData = await preprocessImage(imagePath);
-  const result = net.run(imageData);
+  for (const imagePath of imagePaths) {
+    const imageData = await preprocessImage(imagePath);
+    const result = net.run(imageData);
+    console.log('Resultados da inferência:', result);
+    
+  }
 
-  console.log('Resultados da inferência:', result);
-  return result;
 }
 
 export { detectObject, trainModel };
