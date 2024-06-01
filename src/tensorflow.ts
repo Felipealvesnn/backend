@@ -6,7 +6,7 @@ import * as jimp from "jimp";
 const modelDir = "./src/model/datamodelTensor";
 const modelPatch = `file://${path.resolve(modelDir)}/model.json`;
 
-const labels = ["Cenoura", "Lápis"]; // Mapeamento de labels
+const labels = ["Cenoura", "Lápis", "Óculos", "Garrafa"]; // Mapeamento de labels
 
 // Carregar imagens da pasta especificada
 async function loadImagesFromFolder(folderPath: string): Promise<string[]> {
@@ -34,10 +34,7 @@ async function preprocessImage(imagePath: string): Promise<tf.Tensor3D> {
 }
 
 // Criar conjunto de treinamento
-async function createTrainingSet(
-  folderPath: string,
-  objectName: string
-): Promise<{ input: tf.Tensor3D; output: tf.Tensor }[]> {
+async function createTrainingSet(folderPath: string, objectName: string): Promise<{ input: tf.Tensor3D; output: tf.Tensor }[]> {
   const imagePaths = await loadImagesFromFolder(folderPath);
   const trainingSet: { input: tf.Tensor3D; output: tf.Tensor }[] = [];
 
@@ -67,16 +64,14 @@ async function trainModel(folderPath: string, objectName: string) {
     console.log("Modelo existente encontrado. Carregando...");
     model = (await tf.loadLayersModel(modelPatch)) as tf.Sequential;
 
-    // Recompilando o modelo
+    // Recompilando o modelo com novos dados
     model.compile({
       optimizer: tf.train.adam(),
-      loss: "categoricalCrossentropy", // Alterar conforme necessário para classificação multi-classe
+      loss: "categoricalCrossentropy",
       metrics: ["accuracy"],
     });
   } else {
-    console.log(
-      "Nenhum modelo existente encontrado. Criando um novo modelo..."
-    );
+    console.log("Nenhum modelo existente encontrado. Criando um novo modelo...");
     model = tf.sequential();
     model.add(
       tf.layers.conv2d({
@@ -88,28 +83,24 @@ async function trainModel(folderPath: string, objectName: string) {
     );
     model.add(tf.layers.maxPooling2d({ poolSize: 2 }));
     model.add(tf.layers.flatten());
-    model.add(tf.layers.dense({ units: labels.length, activation: "softmax" })); // Alterar conforme necessário para classificação multi-classe
+    model.add(tf.layers.dense({ units: labels.length, activation: "softmax" }));
 
     model.compile({
       optimizer: tf.train.adam(),
-      loss: "categoricalCrossentropy", // Alterar conforme necessário para classificação multi-classe
+      loss: "categoricalCrossentropy",
       metrics: ["accuracy"],
     });
   }
 
   const inputs = tf.concat(trainingSet.map((item) => item.input.expandDims(0)));
-  const labelsTensor = tf.concat(
-    trainingSet.map((item) => item.output.expandDims(0))
-  );
+  const labelsTensor = tf.concat(trainingSet.map((item) => item.output.expandDims(0)));
 
   await model.fit(inputs, labelsTensor, {
     batchSize: 5,
     epochs: 100,
     callbacks: {
       onEpochEnd: (epoch, logs) => {
-        console.log(
-          `Epoch ${epoch + 1}: loss = ${logs?.loss}, accuracy = ${logs?.acc}`
-        );
+        console.log(`Epoch ${epoch + 1}: loss = ${logs?.loss}, accuracy = ${logs?.acc}`);
       },
     },
   });
@@ -161,9 +152,7 @@ export async function detectObjectFromframeVideo(imageData: number[]) {
   }
 
   if (!Array.isArray(imageData) || imageData.length !== 30 * 30 * 3) {
-    throw new Error(
-      "imageData deve ser um array de números com 2700 elementos"
-    );
+    throw new Error("imageData deve ser um array de números com 2700 elementos");
   }
 
   const inputTensor = tf.tensor3d(imageData, [30, 30, 3]).expandDims(0);
@@ -192,6 +181,12 @@ export async function detectObjectFromframeVideo(imageData: number[]) {
 export { detectObject, trainModel };
 
 // Treinamento do modelo com quadros salvos
-// trainModel('./src/data/frames', 'Cenoura')
+// trainModel('./src/data/cenoura', 'Cenoura')
 //   .then(() => console.log('Treinamento concluído'))
 //   .catch(error => console.error('Erro no treinamento:', error));
+
+// Exemplo de treinamento iterativo
+// await trainModel('./src/data/cenoura', 'Cenoura');
+// await trainModel('./src/data/lapis', 'Lápis');
+// await trainModel('./src/data/oculos', 'Óculos');
+// await trainModel('./src/data/garrafa', 'Garrafa');

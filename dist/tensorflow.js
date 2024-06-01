@@ -39,7 +39,7 @@ const path = __importStar(require("path"));
 const jimp = __importStar(require("jimp"));
 const modelDir = "./src/model/datamodelTensor";
 const modelPatch = `file://${path.resolve(modelDir)}/model.json`;
-const labels = ["Cenoura", "Lápis"]; // Mapeamento de labels
+const labels = ["Cenoura", "Lápis", "Óculos", "Garrafa"]; // Mapeamento de labels
 // Carregar imagens da pasta especificada
 function loadImagesFromFolder(folderPath) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -91,10 +91,10 @@ function trainModel(folderPath, objectName) {
             fs.existsSync(path.join(modelDir, "model.json"))) {
             console.log("Modelo existente encontrado. Carregando...");
             model = (yield tf.loadLayersModel(modelPatch));
-            // Recompilando o modelo
+            // Recompilando o modelo com novos dados
             model.compile({
                 optimizer: tf.train.adam(),
-                loss: "categoricalCrossentropy", // Alterar conforme necessário para classificação multi-classe
+                loss: "categoricalCrossentropy",
                 metrics: ["accuracy"],
             });
         }
@@ -109,10 +109,10 @@ function trainModel(folderPath, objectName) {
             }));
             model.add(tf.layers.maxPooling2d({ poolSize: 2 }));
             model.add(tf.layers.flatten());
-            model.add(tf.layers.dense({ units: labels.length, activation: "softmax" })); // Alterar conforme necessário para classificação multi-classe
+            model.add(tf.layers.dense({ units: labels.length, activation: "softmax" }));
             model.compile({
                 optimizer: tf.train.adam(),
-                loss: "categoricalCrossentropy", // Alterar conforme necessário para classificação multi-classe
+                loss: "categoricalCrossentropy",
                 metrics: ["accuracy"],
             });
         }
@@ -197,7 +197,12 @@ function detectObjectFromframeVideo(imageData) {
 }
 exports.detectObjectFromframeVideo = detectObjectFromframeVideo;
 // Treinamento do modelo com quadros salvos
-// trainModel('./src/data/frames', 'Cenoura')
+// trainModel('./src/data/cenoura', 'Cenoura')
 //   .then(() => console.log('Treinamento concluído'))
 //   .catch(error => console.error('Erro no treinamento:', error));
+// Exemplo de treinamento iterativo
+// await trainModel('./src/data/cenoura', 'Cenoura');
+// await trainModel('./src/data/lapis', 'Lápis');
+// await trainModel('./src/data/oculos', 'Óculos');
+// await trainModel('./src/data/garrafa', 'Garrafa');
 //# sourceMappingURL=tensorflow.js.map
