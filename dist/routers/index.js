@@ -39,7 +39,7 @@ const express_1 = __importStar(require("express"));
 const path_1 = __importDefault(require("path"));
 const fs_1 = __importDefault(require("fs"));
 const body_parser_1 = __importDefault(require("body-parser"));
-const brains = __importStar(require("../train"));
+const tensoor = __importStar(require("../tensorflow"));
 const intasgramRouters_1 = __importDefault(require("./intasgramRouters")); // Certifique-se que você tem esse arquivo e ele está configurado corretamente.
 const routes = (0, express_1.Router)();
 routes.use(express_1.default.static(path_1.default.join(__dirname, '../../', 'src', 'views')));
@@ -62,7 +62,7 @@ routes.get('/video', (req, res) => {
 routes.post('/process-frame', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { imageData } = req.body;
     try {
-        const results = yield brains.detectObjectFromframeVideo(imageData);
+        const results = yield tensoor.detectObjectFromframeVideo(imageData);
         // Suponha que results seja algo como { label: 'Lapis', probability: 0.99, x: 100, y: 150, width: 50, height: 30 }
         res.json({ boxes: [results] });
     }

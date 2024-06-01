@@ -1,79 +1,197 @@
-import * as tf from '@tensorflow/tfjs-node';
-import fs from 'fs';
-import path from 'path';
+import * as tf from "@tensorflow/tfjs-node";
+import * as fs from "fs";
+import * as path from "path";
+import * as jimp from "jimp";
 
-// Função para carregar uma imagem e converter para tensor
-const loadAndPreprocessImage = (imagePath: string): tf.Tensor<tf.Rank> => {
-    const imageBuffer = fs.readFileSync(imagePath);
-    const tfImage = tf.node.decodeImage(imageBuffer, 3) as tf.Tensor3D;
-    const resizedImage = tf.image.resizeBilinear(tfImage, [224, 224]);
-    const normalizedImage = resizedImage.div(tf.scalar(255.0));
-    return normalizedImage.expandDims();
-}
+const modelDir = "./src/model/datamodelTensor";
+const modelPatch = `file://${path.resolve(modelDir)}/model.json`;
+
+const labels = ["Cenoura", "Lápis"]; // Mapeamento de labels
 
 // Carregar imagens da pasta especificada
-const loadImagesFromFolder = async (folderPath: string): Promise<tf.Tensor<tf.Rank>[]> => {
-    const imageFiles = fs.readdirSync(folderPath).filter(file => /\.(jpg|jpeg|png)$/i.test(file));
-    const images = imageFiles.map(file => loadAndPreprocessImage(path.join(folderPath, file)));
-    return Promise.all(images);
+async function loadImagesFromFolder(folderPath: string): Promise<string[]> {
+  const files = fs.readdirSync(folderPath);
+  return files
+    .filter((file) => /\.(jpg|jpeg|png)$/i.test(file))
+    .map((file) => path.join(folderPath, file));
 }
 
-// Criar um modelo simples para classificação
-const createModel = (): tf.Sequential => {
-    const model = tf.sequential();
-    model.add(tf.layers.conv2d({
-        inputShape: [224, 224, 3],
-        filters: 32,
+// Pré-processar uma imagem
+async function preprocessImage(imagePath: string): Promise<tf.Tensor3D> {
+  const image = await jimp.read(imagePath);
+  const targetSize = 30; // Reduzir a resolução para 30x30
+  image.resize(targetSize, targetSize);
+
+  const imageData = new Float32Array(targetSize * targetSize * 3);
+  let index = 0;
+  image.scan(0, 0, targetSize, targetSize, function (x, y, idx) {
+    imageData[index++] = this.bitmap.data[idx] / 255;
+    imageData[index++] = this.bitmap.data[idx + 1] / 255;
+    imageData[index++] = this.bitmap.data[idx + 2] / 255;
+  });
+
+  return tf.tensor3d(imageData, [targetSize, targetSize, 3]);
+}
+
+// Criar conjunto de treinamento
+async function createTrainingSet(
+  folderPath: string,
+  objectName: string
+): Promise<{ input: tf.Tensor3D; output: tf.Tensor }[]> {
+  const imagePaths = await loadImagesFromFolder(folderPath);
+  const trainingSet: { input: tf.Tensor3D; output: tf.Tensor }[] = [];
+
+  for (const imagePath of imagePaths) {
+    const imageData = await preprocessImage(imagePath);
+    const labelIndex = labels.indexOf(objectName);
+    const outputTensor = tf.oneHot(labelIndex, labels.length); // Usando o índice da label
+    trainingSet.push({
+      input: imageData,
+      output: outputTensor,
+    });
+  }
+
+  return trainingSet;
+}
+
+// Treinar modelo de rede neural
+async function trainModel(folderPath: string, objectName: string) {
+  const trainingSet = await createTrainingSet(folderPath, objectName);
+
+  let model: tf.Sequential;
+
+  if (
+    fs.existsSync(modelDir) &&
+    fs.existsSync(path.join(modelDir, "model.json"))
+  ) {
+    console.log("Modelo existente encontrado. Carregando...");
+    model = (await tf.loadLayersModel(modelPatch)) as tf.Sequential;
+
+    // Recompilando o modelo
+    model.compile({
+      optimizer: tf.train.adam(),
+      loss: "categoricalCrossentropy", // Alterar conforme necessário para classificação multi-classe
+      metrics: ["accuracy"],
+    });
+  } else {
+    console.log(
+      "Nenhum modelo existente encontrado. Criando um novo modelo..."
+    );
+    model = tf.sequential();
+    model.add(
+      tf.layers.conv2d({
+        inputShape: [30, 30, 3],
         kernelSize: 3,
-        activation: 'relu',
-    }));
-    model.add(tf.layers.maxPooling2d({poolSize: 2, strides: 2}));
+        filters: 32,
+        activation: "relu",
+      })
+    );
+    model.add(tf.layers.maxPooling2d({ poolSize: 2 }));
     model.add(tf.layers.flatten());
-    model.add(tf.layers.dense({units: 64, activation: 'relu'}));
-    model.add(tf.layers.dense({units: 1, activation: 'sigmoid'})); // Para classificação binária
+    model.add(tf.layers.dense({ units: labels.length, activation: "softmax" })); // Alterar conforme necessário para classificação multi-classe
 
     model.compile({
-        optimizer: 'adam',
-        loss: 'binaryCrossentropy',
-        metrics: ['accuracy'],
+      optimizer: tf.train.adam(),
+      loss: "categoricalCrossentropy", // Alterar conforme necessário para classificação multi-classe
+      metrics: ["accuracy"],
     });
+  }
 
-    return model;
+  const inputs = tf.concat(trainingSet.map((item) => item.input.expandDims(0)));
+  const labelsTensor = tf.concat(
+    trainingSet.map((item) => item.output.expandDims(0))
+  );
+
+  await model.fit(inputs, labelsTensor, {
+    batchSize: 5,
+    epochs: 100,
+    callbacks: {
+      onEpochEnd: (epoch, logs) => {
+        console.log(
+          `Epoch ${epoch + 1}: loss = ${logs?.loss}, accuracy = ${logs?.acc}`
+        );
+      },
+    },
+  });
+
+  await model.save(`file://${path.resolve(modelDir)}`);
+  console.log(`Modelo treinado e salvo como ${modelDir}`);
 }
 
-// Função para treinar o modelo
-export const trainModel = async (folderPath: string): Promise<void> => {
-    const images = await loadImagesFromFolder(folderPath);
-    const labels = images.map(() => 1); // Dummy labels: substitua por seus reais labels
+// Detectar objetos em novas imagens
+async function detectObject(folderPath: string) {
+  const imagePaths = await loadImagesFromFolder(folderPath);
 
-    const xs = tf.concat(images);
-    const ys = tf.tensor1d(labels, 'int32');
+  const model = await tf.loadLayersModel(modelPatch);
+  for (const imagePath of imagePaths) {
+    const imageData = await preprocessImage(imagePath);
+    const result = model.predict(imageData.expandDims(0)) as tf.Tensor;
+    const output = result.dataSync();
+    console.log("Resultados da inferência:", output);
 
-    const model = createModel();
-    await model.fit(xs, ys, {
-        epochs: 10,
-        batchSize: 2
+    // Encontrar a classe com a maior probabilidade
+    const maxIndex = output.indexOf(Math.max(...output));
+
+    // Mapeia o índice para a label correspondente
+    const detectedLabel = labels[maxIndex];
+
+    // Exibir a label detectada e a probabilidade
+    console.log(`Imagem: ${imagePath} - Objeto detectado: ${detectedLabel} (Probabilidade: ${output[maxIndex]})`);
+  }
+}
+
+let model: tf.LayersModel | null = null;
+
+async function loadModel() {
+  if (!model) {
+    model = await tf.loadLayersModel(modelPatch);
+    console.log("Modelo carregado com sucesso");
+    model.compile({
+      optimizer: tf.train.adam(),
+      loss: "categoricalCrossentropy",
+      metrics: ["accuracy"],
     });
-
-    await model.save('file://model-path'); // Salvar o modelo treinado
+  }
 }
 
-// Função para inferência
- const predictImage = async (imagePath: string): Promise<Float32Array> => {
-    const model = await tf.loadLayersModel('file://model-path/model.json');
-    const image = await loadAndPreprocessImage(imagePath); // Certifique-se de que esta função também é async
-    const prediction = model.predict(image) as tf.Tensor;
+export async function detectObjectFromframeVideo(imageData: number[]) {
+  await loadModel();
+  if (!model) {
+    throw new Error("Modelo não carregado");
+  }
 
-    // Garantir que o tensor está em float32 antes de chamar dataSync
-    const predictionFloat32 = prediction.cast('float32');
-    return predictionFloat32.dataSync() as Float32Array;
+  if (!Array.isArray(imageData) || imageData.length !== 30 * 30 * 3) {
+    throw new Error(
+      "imageData deve ser um array de números com 2700 elementos"
+    );
+  }
+
+  const inputTensor = tf.tensor3d(imageData, [30, 30, 3]).expandDims(0);
+  const prediction = model.predict(inputTensor) as tf.Tensor;
+  const result = prediction.dataSync();
+
+  // Encontrar a classe com a maior probabilidade
+  const maxIndex = result.indexOf(Math.max(...result));
+
+  // Mapeia o índice para a label correspondente
+  const detectedLabel = labels[maxIndex];
+
+  // Retornar a label detectada e a probabilidade
+  return [
+    {
+      label: detectedLabel,
+      probability: result[maxIndex],
+      x: 50, // Coordenadas de exemplo
+      y: 50,
+      width: 100,
+      height: 100,
+    },
+  ];
 }
 
+export { detectObject, trainModel };
 
-// Usar as funções
-(async () => {
-    const folderPath = './data'; // Substitua pelo caminho para suas imagens
-    await trainModel(folderPath);
-    const prediction = await predictImage('./data/example.jpg'); // Substitua pelo caminho para uma imagem de teste
-    console.log('Prediction:', prediction);
-})();
+// Treinamento do modelo com quadros salvos
+// trainModel('./src/data/frames', 'Cenoura')
+//   .then(() => console.log('Treinamento concluído'))
+//   .catch(error => console.error('Erro no treinamento:', error));

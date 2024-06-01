@@ -1,11 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <title>Object Detector</title>
 </head>
-
 <body>
     <video id="video" controls style="width: 640px; height: 360px;"></video>
     <br />
@@ -14,137 +12,102 @@
     <button id="pause">Pause</button>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="/object_detector.js" defer></script>
-</body>
 
-</html>
-
-<script>
-    $(document).ready(function () {
-        $.ajax({
-            url: '/video',
-            method: 'GET',
-            success: function (response) {
-                $('#video').attr('src', response.videoPath);
-            },
-            error: function (error) {
-                console.log('Error loading video:', error);
-            }
-        });
-
-        const video = document.getElementById('video');
-        const canvas = document.getElementById('canvas');
-        const playBtn = document.getElementById('play');
-        const pauseBtn = document.getElementById('pause');
-
-        playBtn.addEventListener('click', () => {
-            video.play();
-        });
-
-        pauseBtn.addEventListener('click', () => {
-            video.pause();
-        });
-
-        // Resto do código do object_detector.js...
-    });
-
-
-    // Resto do código do object_detector.js...
-
-
-
-</script>
-
-
-<script>
-    $(document).ready(function () {
-        const video = document.getElementById('video');
-        const canvas = document.getElementById('canvas');
-        const playBtn = document.getElementById('play');
-        const pauseBtn = document.getElementById('pause');
-
-        playBtn.addEventListener('click', () => {
-            video.play();
-        });
-
-        pauseBtn.addEventListener('click', () => {
-            video.pause();
-        });
-
-        video.addEventListener('play', () => {
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            const context = canvas.getContext('2d');
-            let interval = setInterval(() => {
-                context.drawImage(video, 0, 0, canvas.width, canvas.height);
-                const frameData = prepare_inputNew(canvas);
-                sendFrameToServer(frameData);
-            }, 100); // Ajuste o intervalo conforme necessário
-        });
-
-        video.addEventListener('pause', () => {
-            clearInterval(interval);
-        });
-
-
-        function prepare_inputNew(canvas) {
-            const targetSize = 30; // Definindo o tamanho alvo para 30x30 como no back-end
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = targetSize;
-            tempCanvas.height = targetSize;
-            const context = tempCanvas.getContext('2d');
-
-            // Redimensionando a imagem original para o tamanho alvo
-            context.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, targetSize, targetSize);
-
-            const imageData = context.getImageData(0, 0, targetSize, targetSize).data;
-            const inputs = new Float32Array(targetSize * targetSize * 3);
-            let index = 0;
-            for (let i = 0; i < imageData.length; i += 4) {
-                // Normaliza os valores RGB e ignora o canal alpha
-                inputs[index++] = imageData[i] / 255;     // Red
-                inputs[index++] = imageData[i + 1] / 255; // Green
-                inputs[index++] = imageData[i + 2] / 255; // Blue
-            }
-            return inputs;
-        }
-
-
-        function draw_boxes(boxes) {
-            const canvas = document.getElementById('canvas');
-            const context = canvas.getContext('2d');
-
-            boxes.forEach(box => {
-                context.beginPath();
-                context.rect(box.x, box.y, box.width, box.height);
-                context.strokeStyle = 'red';
-                context.strokeText(`${box.label}: ${box.probability.toFixed(2)}`, box.x, box.y - 10);
-                context.stroke();
-            });
-        }
-
-        // Modificar o callback de sucesso para chamar draw_boxes
-        function sendFrameToServer(frameData) {
+    <script>
+        $(document).ready(function () {
             $.ajax({
-                type: "POST",
-                url: "/process-frame",
-                contentType: "application/json",
-                data: JSON.stringify({ imageData: frameData }),
+                url: '/video',
+                method: 'GET',
                 success: function (response) {
-                    console.log('Detection results:', response);
-                    draw_boxes(response.boxes);  // Supondo que a resposta é um array de objetos com x, y, width, height
+                    $('#video').attr('src', response.videoPath);
                 },
                 error: function (error) {
-                    console.error('Error processing frame:', error);
+                    console.log('Error loading video:', error);
                 }
             });
-        }
 
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('canvas');
+            const playBtn = document.getElementById('play');
+            const pauseBtn = document.getElementById('pause');
 
+            let interval;
 
-    });
-</script>
+            playBtn.addEventListener('click', () => {
+                video.play();
+            });
 
+            pauseBtn.addEventListener('click', () => {
+                video.pause();
+                clearInterval(interval);
+            });
 
+            video.addEventListener('play', () => {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const context = canvas.getContext('2d');
+                interval = setInterval(() => {
+                    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    const frameData = prepareInput(canvas);
+                    sendFrameToServer(frameData);
+                }, 100); // Ajuste o intervalo conforme necessário
+            });
+
+            video.addEventListener('pause', () => {
+                clearInterval(interval);
+            });
+
+            function prepareInput(canvas) {
+                const targetSize = 30; // Definindo o tamanho alvo para 30x30 como no back-end
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = targetSize;
+                tempCanvas.height = targetSize;
+                const context = tempCanvas.getContext('2d');
+
+                // Redimensionando a imagem original para o tamanho alvo
+                context.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, targetSize, targetSize);
+
+                const imageData = context.getImageData(0, 0, targetSize, targetSize).data;
+                const inputs = new Float32Array(targetSize * targetSize * 3);
+                let index = 0;
+                for (let i = 0; i < imageData.length; i += 4) {
+                    // Normaliza os valores RGB e ignora o canal alpha
+                    inputs[index++] = imageData[i] / 255;     // Red
+                    inputs[index++] = imageData[i + 1] / 255; // Green
+                    inputs[index++] = imageData[i + 2] / 255; // Blue
+                }
+                return inputs;
+            }
+
+            function drawBoxes(boxes) {
+                const context = canvas.getContext('2d');
+                context.clearRect(0, 0, canvas.width, canvas.height);
+
+                boxes.forEach(box => {
+                    context.beginPath();
+                    context.rect(box.x, box.y, box.width, box.height);
+                    context.strokeStyle = 'red';
+                    context.strokeText(`${box.label}: ${box.probability.toFixed(2)}`, box.x, box.y - 10);
+                    context.stroke();
+                });
+            }
+
+            function sendFrameToServer(frameData) {
+                $.ajax({
+                    type: "POST",
+                    url: "/process-frame",
+                    contentType: "application/json",
+                    data: JSON.stringify({ imageData: Array.from(frameData) }), // Converter Float32Array para Array
+                    success: function (response) {
+                        console.log('Detection results:', response);
+                        drawBoxes(response.boxes);  // Supondo que a resposta é um array de objetos com x, y, width, height
+                    },
+                    error: function (error) {
+                        console.error('Error processing frame:', error);
+                    }
+                });
+            }
+        });
+    </script>
 </body>
-
 </html>

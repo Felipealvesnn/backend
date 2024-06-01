@@ -2,7 +2,7 @@ import express, { Router } from 'express';
 import path from 'path';
 import fs from 'fs';
 import bodyParser from 'body-parser';
-import * as brains from '../train';
+import * as tensoor from '../tensorflow';
 
 import instagram from './intasgramRouters';  // Certifique-se que você tem esse arquivo e ele está configurado corretamente.
 
@@ -32,7 +32,7 @@ routes.get('/video', (req, res) => {
 routes.post('/process-frame', async (req, res) => {
     const { imageData } = req.body;
     try {
-        const results = await brains.detectObjectFromframeVideo(imageData);
+        const results = await tensoor.detectObjectFromframeVideo(imageData);
         // Suponha que results seja algo como { label: 'Lapis', probability: 0.99, x: 100, y: 150, width: 50, height: 30 }
         res.json({ boxes: [results] });
     } catch (error) {

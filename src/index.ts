@@ -1,8 +1,10 @@
 import express, { Request, Response } from 'express';
 import * as path from 'path';
-
+import Router from './routers/index';
+//import * as brains from './train';
 //import loadModelAndInfer from './infer';
-import * as brains from './train';
+ import * as tensor from './tensorflow';
+// tensor.main();
 
 var i = 0;
 
@@ -15,11 +17,11 @@ var i = 0;
   // }
 
 //brains.trainModel('./src/data/cenoura','cenoura');
-//brains.detectObject('./src/data/cenoura');
+//tensor.trainModel('./src/data/cenoura', 'Cenoura');
+tensor.detectObject('./src/data/cenoura');
 
 
 
-import Router from './routers/index';
 
 
 
